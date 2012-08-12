@@ -1,0 +1,27 @@
+DJANGO_SETTINGS_MODULE={{PKGNAME}}.settings_{{FLAVOR}}
+USERNAME={{USERNAME}}
+FLAVOR={{FLAVOR}}
+PKGNAME={{PKGNAME}}
+APPDIR={{APPDIR}}
+USERDIR={{USERDIR}}
+
+# QUICK REFERENCE:
+#
+# Shortcut       Description and equivalent
+# -------------  -------------------------------
+# @reboot        Run once, at startup.
+# @yearly        Run once a year, "0 0 1 1 *".
+# @annually      (same as @yearly)
+# @monthly       Run once a month, "0 0 1 * *".
+# @weekly        Run once a week, "0 0 * * 0".
+# @daily         Run once a day, "0 0 * * *".
+# @midnight      (same as @daily)
+# @hourly        Run once an hour, "0 * * * *".
+#
+# Minute Hour   Day    Month  Weekday Command
+# ------ ------ ------ ------ ------- -------
+# (0-59) (0-23) (1-31) (1-12) (0-6)   -
+
+  *      *      *      *      *       (flock -n 9; echo '***************************************'; echo Running at `date`; echo '***************************************'; {{APPDIR}}/.ve/bin/python {{APPDIR}}/src/manage.py mycommand) 9>{{USERDIR}}/.crontab-lock >>{{USERDIR}}/crontab_log 2>&1
+
+# make sure there's a newline at EOF !
