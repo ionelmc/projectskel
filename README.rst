@@ -12,7 +12,36 @@ Features
 Complete list of commands
 -------------------------
 
-*
+* **bootstrap** -Setup a working environment locally.
+* **build** - Make a build of the current revision in .build directory.
+* **bundlestrap** - Bootstrap the uploaded project package on the remote server.
+* **check_dependency_updates** - Check for dependency updates in the local development environment.
+* **clean** - Remove existing virtualenv and builds.
+* **cleanup_pyc** - Removes \*.pyc and \*.pyo files.
+* **deploy** - Deploy the current revision.
+* **django_admin**
+* **django_startproject
+* **download**
+* **environment** - Use a specific config set (environment).
+* **fab** - Run a remove fab command in the currently installed project's root.
+* **m** - manage.py shorthand. Eg: `fab m:syncdb`
+* **makemessages** - Run manage.py makemessages. Eg: `fab makemessages:ro,fr,ru`
+* **manage**
+* **prune_builds** - Remove old builds from the remove system.
+* **reset_db** - Reset database and recreate it. Requires django-extensions.
+* **run** - Run the dev server, eg: `fab run:ip:port`, `fab run`
+* **run_tmux** - Start tmux session with panes for `left_commands` and `right_commands`.
+* **runex** - Start tmux session with panes for celeryd, runserver, celerycam, tail postgresql log. This is just an example.
+* **setup_db** - Setup *empty* database (aka syncdb --all and migrate --fake).
+* **setup_postgresql** - Setup postgresql on the remote server.
+* **shell** - Run command in a remote shell (in ./~).
+* **sloc** - Compute SLOC report using metrics.
+* **sloccount** - Compute SLOC report using sloccount.
+* **sudoshell** - Sudo run command in a remote shell (in ./~).
+* **update_dependency** - Update specific or all dependencies in the local environment. Eg: `fab update_dependency:celery`, `fab update_dependency`
+* **upload** - Upload the built project package to the remote server.
+* **version** - Display the current version of the package.
+
 
 
 Setting up the project
@@ -102,4 +131,3 @@ servers then just add it in the env.roleconfig list for the correct role.
 To deploy the aplication to on servers from a specific role just run::
 
     fab -R rolename -u username -p password deploy
-

@@ -176,14 +176,12 @@ class Project(object):
 
 prj = Project()
 
-@task
-def shell(command=None):
-    open_shell(command)
-
-
 @runs_once
 @task
 def build(args=''):
+    """
+    Make a build of the current revision in .build directory.
+    """
     with ctx.lcd(settings.root_path), cwd(settings.root_path):
         local('mkdir -p .builds')
         local('mkdir -p .pip-cache')
@@ -257,7 +255,9 @@ def build(args=''):
 @task
 @require_role
 def upload(what=None):
-    """Upload the built project package."""
+    """
+    Upload the built project package to the remote server.
+    """
     if what:
         ops.put(what)
     else:
@@ -271,7 +271,9 @@ def upload(what=None):
 @task
 @require_role
 def bundlestrap():
-    """Bootstrap the uploaded project package."""
+    """
+    Bootstrap the uploaded project package on the remote server.
+    """
     ## Install bare server requirements
     if silentrun('which pip').failed:
         ops.sudo('easy_install pip')
@@ -321,10 +323,13 @@ onefab = runs_once(fab)
 
 @task
 @require_role
-def shell(args="bash"):
-    "Run command in a remote shell (in ./~)."
-    with ctx.cd("~/"):
-        ops.run(args)
+def shell(args=None, path="~/"):
+    "Run command in a remote shell (in ./~). If command not specified then run the default shell."
+    if args is None:
+        open_shell()
+    else:
+        with ctx.cd(path):
+            ops.run(args)
 
 @task
 @require_role
@@ -342,6 +347,9 @@ def clean():
 
 @task
 def bootstrap(args=''):
+    """
+    Setup a working environment locally.
+    """
     deb_packages = [pkg.strip() for pkg in file("DEB-REQUIREMENTS")
                     if not pkg.startswith('#')]
     if any(
@@ -410,7 +418,9 @@ def manage(args=''):
 
 @task
 def cleanup_pyc():
-    "Removes *.pyc and *.pyo files."
+    """
+    Removes *.pyc and *.pyo files.
+    """
     with ctx.lcd(settings.root_path):
         local("find src -type f -name '*.py[co]' -print0 | xargs -0 rm -f")
 
@@ -421,13 +431,16 @@ def download(what, dest='download'):
 
 @task
 def set_python(name):
-    "Use another version of python. Usage: set_python:python2.4"
+    """
+    Use another version of python. Usage: set_python:python2.4
+    """
     settings.py_version = name
 
 @task
 def version():
-    """Display the current version of the package."""
-    # Package info
+    """
+    Display the current version of the package.
+    """
     print " __________________________________________________________"
     print "|                                                          |"
     print "| Current version:                                         |"
@@ -436,13 +449,17 @@ def version():
 
 @task
 def environment(what):
-    "Use a specific config set (environment)."
+    """
+    Use a specific config set (environment).
+    """
     settings.environment = what
 
 @task
 @require_role
 def prune_builds(keep=3):
-    """Deploy the project package to the target machine(s)"""
+    """
+    Remove old builds from the remove system.
+    """
     try:
         keep = int(keep)
     except:
@@ -457,6 +474,9 @@ def prune_builds(keep=3):
 
 @task
 def check_dependency_updates():
+    """
+    Check for dependency updates in the local development environment.
+    """
     with ctx.lcd(settings.root_path), cwd(settings.root_path):
         local('.ve/bin/pip install yolk')
         reqs = [re.split('[<>=]', line)[0] for line in [
@@ -469,6 +489,9 @@ def check_dependency_updates():
 
 @task
 def update_dependency(name=None):
+    """
+    Update specific or all dependencies in the local environment. Eg: fab update_dependency:celery; fab update_dependency
+    """
     with ctx.lcd(settings.root_path), cwd(settings.root_path):
         if name:
             local(".ve/bin/pip install --download-cache=.pip-cache -I --source=.ve/src/ "
@@ -478,7 +501,6 @@ def update_dependency(name=None):
                   "--timeout=1 -r REQUIREMENTS")
 
 @require_role
-@task
 def install_config_templates(template_pattern,
                              backup_action,
                              rollback_action,
@@ -535,7 +557,7 @@ def install_config_templates(template_pattern,
         rollover.rollback = lambda: rollback_action(**template_vars)
         return rollover
 
-@task
+@require_role
 def config_supervisord(glob_pattern="*", **kwargs):
     def backup_action(**kwargs):
         if files.exists("%(USERDIR)s/supervisord/conf.d" % kwargs):
@@ -586,7 +608,7 @@ def config_supervisord(glob_pattern="*", **kwargs):
         **kwargs
     )
 
-@task
+@require_role
 def config_apache(glob_pattern="*", **kwargs):
     def backup_action(**kwargs):
         if files.exists("%(USERDIR)s/httpd/conf.d" % kwargs):
@@ -644,6 +666,9 @@ def config_apache(glob_pattern="*", **kwargs):
 @task
 @require_role
 def setup_postgresql():
+    """
+    Setup postgresql on the remote server.
+    """
     if silentrun("dpkg -s postgresql-9.1 > /dev/null").failed:
         ops.sudo("apt-get install postgresql-9.1")
         files.append('local all all trust',
@@ -656,7 +681,6 @@ def setup_postgresql():
     if silentrun("dpkg -s python-psycopg2 > /dev/null").failed:
         ops.sudo("apt-get install python-psycopg2")
 
-@task
 @require_role
 def config_cron(**kwargs):
     def backup_action(**kwargs):

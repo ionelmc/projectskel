@@ -33,31 +33,33 @@ env.roleconfig = {
 @task
 def run(bind_to="0.0.0.0:8000"):
     """
-    Run the dev server, eg: fab run:ip:port
+    Run the dev server, eg: fab run:ip:port; fab run
     """
     manage("syncdb --verbosity=0 --migrate --noinput")
     manage("runserver --verbosity=2 --traceback %s" % bind_to)
 
 @task
 def reset_db(noinput=False):
+    """
+    Reset database and recreate it. Requires django-extensions.
+    """
     if noinput or confirm("Really erase database ?"):
         manage("reset_db --noinput --router=default")
-        manage("syncdb --noinput --migrate")
+        setup_db()
 
 @task
 def m(args=''):
+    """
+    manage.py shorthand. Eg: fab m:syncdb
+    """
     manage(args)
-
-def deploy_supervisord(environment=None, glob_pattern="*", **kwargs):
-    config_supervisord(
-        environment=environment,
-        glob_pattern=glob_pattern,
-        **kwargs
-    )()
 
 @task
 @require_role
 def deploy(what=None, keep=3):
+    """
+    Deploy the current revision.
+    """
     build()
     with ctx.settings(warn_only=True):
         prod_db_backup()
@@ -82,6 +84,9 @@ def deploy(what=None, keep=3):
 
 @task
 def setup_db():
+    """
+    Setup *empty* database (aka syncdb --all and migrate --fake).
+    """
     manage("syncdb --all")
     manage("migrate --fake")
 
@@ -94,6 +99,9 @@ def prod_db_backup():
 
 @task
 def sloc():
+    """
+    Compute SLOC report using metrics.
+    """
     with ctx.lcd(settings.root_path):
         local(".ve/bin/pip install pygments metrics")
         local('.ve/bin/metrics -v `find \`cat METRICS\` -type f \( '
@@ -103,22 +111,30 @@ def sloc():
 
 @task
 def sloccount():
+    """
+    Compute SLOC report using sloccount.
+    """
+    if local("dpkg -s sloccount", quiet=True, capture=True).failed:
+        local("sudo apt-get install sloccount")
     local('sloccount `find \`cat METRICS\` -type f \( '
                '-iname "*.css" -or -iname "*.py" -or -iname "*.js" '
                '-or -iname "*.html" -or -iname "*.txt" '
                '\) \! -path "*/migrations/*.py" -print` ')
 
 @task
-def makemessages():
-    manage("makemessages -l fr")
-    manage("makemessages -l ro")
-
+def makemessages(*languages):
+    """
+    Run manage.py makemessages. Eg: fab makemessages:ro,fr,ru
+    """
+    for lng in languages:
+        manage("makemessages -l "+lng)
 
 @task
 def run_tmux(left_commands=(), right_commands=()):
+    """
+    Start tmux session with panes for `left_commands` and `right_commands`.
+    """
     import subprocess
-
-
     session = 'tmux set -g mouse-select-pane on;'
     #' tmux setw -g mode-mouse on; '
     #' tmux set-option -g set-remain-on-exit on; '
@@ -150,6 +166,9 @@ def run_tmux(left_commands=(), right_commands=()):
 
 @task
 def runex():
+    """
+    Start tmux session with panes for celeryd, runserver, celerycam, tail postgresql log. This is just an example.
+    """
     run_tmux(
         left_commands=[
             "fab manage:celeryd",
