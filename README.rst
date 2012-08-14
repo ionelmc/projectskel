@@ -20,7 +20,7 @@ Complete list of commands
 * **cleanup_pyc** - Removes \*.pyc and \*.pyo files.
 * **deploy** - Deploy the current revision.
 * **django_admin**
-* **django_startproject
+* **django_startproject**
 * **download**
 * **environment** - Use a specific config set (environment).
 * **fab** - Run a remove fab command in the currently installed project's root.
