@@ -8,6 +8,7 @@ Features
 * **ready made system** - you can deploy it to an ubuntu 12.04 server right after running startproject
 * **versioned deployments** - errors during a deployment will rollback it
 * **bundled dependencies** - the deployed archive contains the dependencies - no more broken deployments because some random pypi downtime
+* **mulitenacy** - you can deploy multiple instances (as fabric roles) of the project on the same server
 
 Complete list of commands
 -------------------------
