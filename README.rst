@@ -5,9 +5,14 @@
 Features
 ========
 
-* **ready made system** - you can deploy it to an ubuntu 12.04 server rightaway after running startproject
-* **versioned deployments** - error during a deployment will rollback it
+* **ready made system** - you can deploy it to an ubuntu 12.04 server right after running startproject
+* **versioned deployments** - errors during a deployment will rollback it
 * **bundled dependencies** - the deployed archive contains the dependencies - no more broken deployments because some random pypi downtime
+
+Complete list of commands
+-------------------------
+
+*
 
 
 Setting up the project
