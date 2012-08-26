@@ -2,6 +2,12 @@
      project skel
 =======================
 
+This skeleton gives you a complete Fabric deployment and development toolchain with 
+it's main goal beeing convenience.
+
+It bundles a django project template with couple minor changed from the 1.4 default: adjusted 
+MEDIA_ROOT/STATIC_ROOT and some additional variables for common paths for the project. 
+
 Features
 ========
 
@@ -10,8 +16,22 @@ Features
 * **bundled dependencies** - the deployed archive contains the dependencies - no more broken deployments because some random pypi downtime
 * **mulitenacy** - you can deploy multiple instances (as fabric roles) of the project on the same server
 
+Beyond those features listed above this skel does few choices for you:
+
+* configuration is versioned because it's inside the project. This is a choice of 
+  convenience over best practice. If you don't want this you can change the fabfile.py to load
+  configuration from external files (that you store in a "well known location").
+* no access to the git/hg repository from the servers. The sources are zipped and 
+  uploaded to the server instead. This is one one hand a security boost and on the other 
+  a convenience (less configuration and you don't really need to have good branching strategies).  
+* everything is deployed in the user home directory. Only few changes are made to the apache/supervisord 
+  config to make them load additional configuration form the user's home directory. This is to 
+  encourage isolation for the daemons you run on the server and make it easy to use this with
+  minor changes on shared hosting or other linuxes (like centos, fedora etc).
+
+
 Complete list of commands
--------------------------
+=========================
 
 * **bootstrap** -Setup a working environment locally.
 * **build** - Make a build of the current revision in .build directory.
