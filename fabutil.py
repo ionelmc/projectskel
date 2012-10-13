@@ -76,6 +76,7 @@ settings = AttrDict(
     project_name = 'namelessproject',
     root_path = os.path.abspath(os.path.dirname(__file__)),
     venv_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '.ve'),
+    tag = None
 )
 
 def require_role(func):
@@ -136,6 +137,8 @@ class Project(object):
 
     @cached_property
     def tag(self):
+        if settings.tag:
+            return settings.tag
         with ctx.lcd(settings.root_path):
             with ctx.settings(ctx.hide('running')):
                 if self.is_hg:
@@ -453,6 +456,11 @@ def environment(what):
     Use a specific config set (environment).
     """
     settings.environment = what
+
+@task
+def set_tag(what):
+    "Use a specific tag. Only for the adventurous."
+    settings.tag = what
 
 @task
 @require_role
