@@ -9,7 +9,7 @@ __all__ = (
     'setup_postgresql', 'prune_builds','rollover_project_link', 'prj',
     'config_cron', 'install', 'django_admin', 'update_dependency',
     'check_dependency_updates', 'shell', 'confirm', 'config_supervisord',
-    'django_startproject'
+    'django_startproject', 'config_nginx', 'silentrun', 'set_tag'
 )
 import hashlib
 import hmac
