@@ -288,7 +288,7 @@ def bundlestrap():
         ops.sudo('apt-get install -qq python-dev')
         ops.sudo('pip install Fabric')
     deployment_dir = '~/%s/%s' % (settings.deployment_dir, env.role)
-    ops.run('mkdir -p ' + deployment_dir)
+    ops.run('mkdir -p ~/run ~/media-%s ~/logs %s' % (env.role, deployment_dir))
     # temporarily disable .pydistutils.cfg, see https://github.com/pypa/virtualenv/issues/88
     pydistutils = files.exists('.pydistutils.cfg')
     if pydistutils:

@@ -149,6 +149,10 @@ To add a new role you need to add new configuration in each of the 3 places
 described above. If you just have a new server that's identical to existing
 servers then just add it in the env.roleconfig list for the correct role.
 
+.. warning:: 
+
+    Role name must not contain spaces !
+
 To deploy the aplication to on servers from a specific role just run::
 
     fab -R rolename -u username -p password deploy
