@@ -580,20 +580,24 @@ def config_supervisord(glob_pattern="*", **kwargs):
     def rollback_action(**kwargs):
         ops.run("rm -rf %(USERDIR)s/supervisord/conf.d" % kwargs)
         ops.run("mv %(USERDIR)s/supervisord/conf.d-backup %(USERDIR)s/supervisord/conf.d" % kwargs)
+        rollover_action([], **kwargs) #XXX
 
-    def rollover_action(config_files, **kwargs):
-        ops.sudo("supervisorctl stop all")
+    def rollover_action(names, **kwargs):
+        [ops.sudo("supervisorctl stop %s" % name) for name in names if name]
         ops.sudo("supervisorctl reread")
         ops.sudo("supervisorctl update")
-        ops.sudo("supervisorctl start all")
-        ops.sudo("supervisorctl status")
+        [ops.sudo("supervisorctl start %s" % name) for name in names if name]
+        ops.sudo("supervisorctl status") #TODO: check for BACKOFF and other error states !
 
     def install_action(config_file, **kwargs):
-        kwargs['CONFIGNAME'] = os.path.splitext(os.path.basename(config_file))[0]
-        conf_path = "%(USERDIR)s/supervisord/conf.d/%(CONFIGNAME)s-%(PKGNAME)s-%(FLAVOR)s.conf" % kwargs
+        kwargs['CONFIGNAME'], kwargs['CONFIGTYPE'] = os.path.splitext(os.path.basename(config_file))
+        kwargs['PROGRAMNAME'] = "%(PKGNAME)s-%(FLAVOR)s-%(CONFIGNAME)s" % kwargs
+        conf_path = "%(USERDIR)s/supervisord/conf.d/%(PROGRAMNAME)s%(CONFIGTYPE)s" % kwargs
+        kwargs['CONFIGABSOLUTENAME'] = os.path.splitext(conf_path)[0]
         ops.run("mkdir -p %(USERDIR)s/supervisord/conf.d" % kwargs)
         files.upload_template(config_file, conf_path, kwargs, use_jinja=settings.use_jinja)
-        return "%(PKGNAME)s-%(FLAVOR)s-%(CONFIGNAME)s" % kwargs
+        if kwargs['CONFIGTYPE'] == ".conf":
+            return kwargs['PROGRAMNAME']
 
     with ctx.cd("~/"):
         home_path = ops.run('pwd').strip()
