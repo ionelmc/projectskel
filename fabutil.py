@@ -333,14 +333,10 @@ def fab(args='', role=None, version=None):
 onefab = runs_once(fab)
 
 @task
-@require_role
-def shell(args=None, path="~/"):
-    "Run command in a remote shell (in ./~). If command not specified then run the default shell."
-    if args is None:
-        open_shell()
-    else:
-        with ctx.cd(path):
-            ops.run(args)
+def shell(args="bash"):
+    "Run command in a remote shell (in ./~)."
+    with ctx.cd("~/"):
+        ops.run(args)
 
 @task
 @require_role
