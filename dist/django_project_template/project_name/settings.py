@@ -25,6 +25,18 @@ DATABASES = {
         'PASSWORD': '',                  # Not used with sqlite3.
         'HOST': '',                      # Set to empty string for localhost. Not used with sqlite3.
         'PORT': '',                      # Set to empty string for default. Not used with sqlite3.
+        
+        'OPTIONS': {
+            # for posgresql:
+            'autocommit': True,
+            
+            # for mysql
+            'sql_mode': 'TRADITIONAL,STRICT_ALL_TABLES',
+            'charset': 'utf8',
+            'init_command':
+                'SET storage_engine=INNODB,'
+                'SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED',
+        }    
     }
 }
 
