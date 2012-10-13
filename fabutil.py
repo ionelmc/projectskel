@@ -278,19 +278,27 @@ def bundlestrap():
     Bootstrap the uploaded project package on the remote server.
     """
     ## Install bare server requirements
+    if silentrun('which easy_install').failed:
+        ops.sudo('apt-get install -qq python-setuptools')
     if silentrun('which pip').failed:
         ops.sudo('easy_install pip')
     if silentrun('which virtualenv').failed:
         ops.sudo('pip install virtualenv')
     if silentrun('which fab').failed:
-        ops.sudo('apt-get install python-dev')
-        ops.sudo('pip intall Fabric')
+        ops.sudo('apt-get install -qq python-dev')
+        ops.sudo('pip install Fabric')
     deployment_dir = '~/%s/%s' % (settings.deployment_dir, env.role)
     ops.run('mkdir -p ' + deployment_dir)
     # temporarily disable .pydistutils.cfg, see https://github.com/pypa/virtualenv/issues/88
     pydistutils = files.exists('.pydistutils.cfg')
     if pydistutils:
         ops.run("mv ~/.pydistutils.cfg ~/.pydistutils.cfg.disabled")
+
+    deb_packages = [pkg.strip() for pkg in file("DEB-REQUIREMENTS")
+                    if not pkg.startswith('#')]
+    for pkg in deb_packages:
+        if silentrun("dpkg -s %s > /dev/null" % pkg).failed:
+            ops.sudo("sudo apt-get install -qq " + pkg)
 
     with ctx.cd(deployment_dir):
         ops.run('rm -rf %s' % prj.build_name)
@@ -360,7 +368,7 @@ def bootstrap(args=''):
         for pkg in deb_packages
     ):
         if confirm("Install debian packages (%s) ?" % ', '.join(deb_packages)):
-            local("sudo apt-get install `cat DEB-REQUIREMENTS`")
+            local("sudo apt-get install `cat DEB-REQUIREMENTS | grep -v ^#`")
 
     with ctx.lcd(settings.root_path):
         local("mv .ve .ve-backup", quiet=True)
@@ -678,7 +686,7 @@ def setup_postgresql():
     Setup postgresql on the remote server.
     """
     if silentrun("dpkg -s postgresql-9.1 > /dev/null").failed:
-        ops.sudo("apt-get install postgresql-9.1")
+        ops.sudo("apt-get install -qq postgresql-9.1")
         files.append('local all all trust',
                      '/etc/postgresql/9.1/main/pg_hba.conf', use_sudo=True)
         ops.sudo("/etc/init.d/postgresql restart")
@@ -687,7 +695,7 @@ def setup_postgresql():
     with ctx.settings(warn_only=True):
         ops.run("createdb %s_%s" % (settings.project_name, env.role))
     if silentrun("dpkg -s python-psycopg2 > /dev/null").failed:
-        ops.sudo("apt-get install python-psycopg2")
+        ops.sudo("apt-get install -qq python-psycopg2")
 
 @require_role
 def config_cron(**kwargs):
