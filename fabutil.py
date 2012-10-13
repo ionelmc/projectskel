@@ -97,9 +97,9 @@ def local(command, quiet=False, capture=False):
     else:
         return ops.local(command, capture=capture)
 
-def silentrun(command, **kwargs):
+def silentrun(command, use_sudo=False, **kwargs):
     with ctx.settings(ctx.hide('aborts', 'warnings'), warn_only=True):
-        return ops.run(command, kwargs)
+        return (ops.sudo if use_sudo else ops.run)(command, kwargs)
 
 class cached_property(object):
     def __init__(self, function, name=None):
@@ -598,7 +598,7 @@ def config_supervisord(glob_pattern="*", **kwargs):
                 )
 
     return install_config_templates(
-        'dist/templates/supervisord/%s.conf',
+        'dist/templates/supervisord/%s.*',
         backup_action,
         rollback_action,
         rollover_action,
@@ -707,6 +707,65 @@ def config_cron(**kwargs):
         install_action,
         environment=environment,
         glob_pattern=None,
+        **kwargs
+    )
+
+@require_role
+def config_nginx(glob_pattern="*", **kwargs):
+    def backup_action(**kwargs):
+        if files.exists("%(USERDIR)s/nginx/conf.d" % kwargs):
+            ops.run("rm -rf %(USERDIR)s/nginx/conf.d-backup" % kwargs)
+            ops.run("mkdir %(USERDIR)s/nginx/conf.d-backup" % kwargs)
+            ops.run("cp %(USERDIR)s/nginx/conf.d/*"
+                    "   %(USERDIR)s/nginx/conf.d-backup" % kwargs)
+
+    def rollback_action(**kwargs):
+        ops.run("rm -rf %(USERDIR)s/nginx/conf.d" % kwargs)
+        ops.run("mv %(USERDIR)s/nginx/conf.d-backup"
+                "   %(USERDIR)s/nginx/conf.d" % kwargs)
+
+    def rollover_action(config_files, **kwargs):
+        ops.sudo("service nginx configtest")
+        ops.sudo("service nginx reload")
+
+    def install_action(config_file, **kwargs):
+        kwargs['CONFIGNAME'], kwargs['CONFIGTYPE'] = os.path.splitext(os.path.basename(config_file))
+        conf_path = "%(USERDIR)s/nginx/conf.d/%(CONFIGNAME)s-%(PKGNAME)s-%(FLAVOR)s%(CONFIGTYPE)s" % kwargs
+        if kwargs['CONFIGTYPE'] == '.conf':
+            kwargs['WSGIPATH'] = conf_path.replace(".conf", ".wsgi")
+        ops.run("mkdir -p %(USERDIR)s/nginx/conf.d" % kwargs)
+        files.upload_template(config_file, conf_path, kwargs, use_jinja=settings.use_jinja)
+
+    with ctx.cd("~/"):
+        home_path = ops.run('pwd').strip()
+        if silentrun("dpkg -s uwsgi-plugin-python > /dev/null").failed:
+            ops.sudo(
+                "apt-get install -qq uwsgi-plugin-python",
+            )
+        if silentrun("dpkg -s nginx > /dev/null").failed:
+            ops.sudo(
+                "apt-get install -qq nginx",
+            )
+        if not files.contains(
+            '/etc/nginx/nginx.conf',
+            "http { include %s/nginx/conf.d/*.conf; }" % home_path,
+        ):
+            files.append(
+                '/etc/nginx/nginx.conf',
+                "\nhttp { include %s/nginx/conf.d/*.conf; }\n" % home_path,
+                use_sudo=True
+            )
+        if files.exists('/etc/nginx/sites-enabled/default'):
+            ops.sudo("rm /etc/nginx/sites-enabled/default")
+
+    return install_config_templates(
+        'dist/templates/nginx/%s.*',
+        backup_action,
+        rollback_action,
+        rollover_action,
+        install_action,
+        environment=environment,
+        glob_pattern=glob_pattern,
         **kwargs
     )
 

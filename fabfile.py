@@ -14,7 +14,11 @@ from fabutil import *
 
 #settings.py_version = 'python%s.%s-dbg' % (sys.version_info[0], sys.version_info[1])
 settings.project_name = 'myproject'
-#settings.build_ignore_file_patterns = ['resources', 'dist/templates', '.komodotools']
+#settings.build_ignore_file_patterns = [
+#    'resources', 
+#    'dist/templates', 
+#    '.komodotools'
+#]
 
 env.roledefs = {
     'qa': ['192.168.106.129'],
@@ -22,6 +26,7 @@ env.roledefs = {
 }
 env.roleconfig = {
     'qa': {
+        'SERVER_NAME': 'mydomain.com',
         'CELERY_WORKER_ARGS': '-Q default -c 6 -E',
         'HTTPD_ALIAS': '/qa',
     },
@@ -55,6 +60,20 @@ def m(args=''):
     manage(args)
 
 @task
+def deploy_supervisord(glob_pattern="*", **kwargs):
+    config_supervisord(
+        glob_pattern=glob_pattern,
+        **kwargs
+    )()
+
+@task
+def deploy_nginx(glob_pattern="*", **kwargs):
+    config_nginx(
+        glob_pattern=glob_pattern,
+        **kwargs
+    )()
+
+@task
 @require_role
 def deploy(what=None, keep=3):
     """
@@ -70,7 +89,14 @@ def deploy(what=None, keep=3):
     fab('manage:"syncdb --migrate --noinput"', version=prj.build_name)
     fab('manage:"collectstatic --noinput"', version=prj.build_name)
 
-    install(rollover_project_link, config_supervisord(), config_cron(), config_apache())
+    install(
+        rollover_project_link, 
+        config_cron(), 
+        config_apache()
+        # use these instead of apache if you want uwsgi 
+        # config_nginx(),
+        # config_supervisord(),
+    )
 
     print colors.yellow(" __________________________________________________________")
     print colors.yellow("|                                                          |")
@@ -180,3 +206,9 @@ def runex():
             #"htop",
         ]
     )
+
+@task
+def install_certificates():
+    from glob import glob
+    for path in glob('dist/certificates/*'):
+        ops.put(path, '/etc/ssl/private/', use_sudo=True)
