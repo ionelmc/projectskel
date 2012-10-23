@@ -1,5 +1,5 @@
 south==0.7.6
-Django==1.4.1
+Django==1.4.2
 django-extensions==0.9
 docutils==0.9.1
 celery

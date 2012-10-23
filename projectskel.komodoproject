@@ -3,7 +3,7 @@
 <project id="4dc81861-f9f7-419f-a407-9d0d86fd5c64" kpf_version="5" name="projectskel.komodoproject">
 <preference-set idref="4dc81861-f9f7-419f-a407-9d0d86fd5c64">
   <string relative="path" id="import_dirname"></string>
-  <string id="import_exclude_matches">*.*~;*.bak;*.tmp;CVS;.#*;*.pyo;*.pyc;.svn;.git;.hg;.bzr;*%25*;tmp*.html;.DS_Store;*.swp;*.kpf;*.komodoproject;.komodotools;__pycache__;.ve;.pip-cache;.idea;db;backup-*</string>
+  <string id="import_exclude_matches">*.*~;*.bak;*.tmp;CVS;.#*;*.pyo;*.pyc;.svn;.git;.hg;.bzr;*%25*;tmp*.html;.DS_Store;*.swp;*.kpf;*.komodoproject;.komodotools;__pycache__;django_project_template</string>
   <string id="import_include_matches"></string>
   <string relative="path" id="last_local_directory"></string>
 </preference-set>
