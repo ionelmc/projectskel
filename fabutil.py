@@ -754,10 +754,11 @@ def config_nginx(glob_pattern="*", **kwargs):
 
     with ctx.cd("~/"):
         home_path = ops.run('pwd').strip()
-        if silentrun("dpkg -s uwsgi-plugin-python > /dev/null").failed:
-            ops.sudo(
-                "apt-get install -qq uwsgi-plugin-python",
-            )
+        # disabled for now, package is too old in ubuntu 12.04
+        #if silentrun("dpkg -s uwsgi-plugin-python > /dev/null").failed:
+        #    ops.sudo(
+        #        "apt-get install -qq uwsgi-plugin-python",
+        #    )
         if silentrun("dpkg -s nginx > /dev/null").failed:
             ops.sudo(
                 "apt-get install -qq nginx",
