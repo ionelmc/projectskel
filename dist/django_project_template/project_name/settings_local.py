@@ -2,6 +2,7 @@ from .settings import *
 
 # don't repeat connection OPTIONS here, the database server behavior needs to be the same in
 # development
+DEBUG = True
 DATABASES['default']['NAME'] = '{{ project_name }}'
 
 INSTALLED_APPS += (
@@ -18,3 +19,4 @@ DEBUG_TOOLBAR_CONFIG = {
     'HIDE_DJANGO_SQL': False,
     'ENABLE_STACKTRACES' : True,
 }
+LOGGING['root']['handlers'] = ['console']

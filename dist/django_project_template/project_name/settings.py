@@ -8,7 +8,7 @@ DEPLOYED_ROOT = os.path.realpath(os.path.abspath(os.path.dirname(SRC_ROOT)))
 PROJECT_NAME = os.path.basename(PROJECT_ROOT)
 DJANGO_ROOT = os.path.realpath(os.path.abspath(os.path.dirname(django.__file__)))
 
-DEBUG = True
+DEBUG = False
 TEMPLATE_DEBUG = DEBUG
 
 ADMINS = (
@@ -150,7 +150,15 @@ INSTALLED_APPS = (
 # more details on how to customize your logging configuration.
 LOGGING = {
     'version': 1,
-    'disable_existing_loggers': False,
+    'disable_existing_loggers': True,
+    'formatters': {
+        'verbose': {
+            'format': '[%(asctime)s: %(levelname)s/%(processName)s/%(process)s] %(name)s - %(message)s \t\t\t in %(funcName)s@%(pathname)s:%(lineno)d'
+        },
+        'simple': {
+            'format': '%(levelname)s - %(name)s : %(message)s'
+        },
+    },
     'filters': {
         'require_debug_false': {
             '()': 'django.utils.log.RequireDebugFalse'
@@ -161,7 +169,19 @@ LOGGING = {
             'level': 'ERROR',
             'filters': ['require_debug_false'],
             'class': 'django.utils.log.AdminEmailHandler'
-        }
+        },
+        'console': {
+            'level':'DEBUG',
+            'class':'logging.StreamHandler',
+            'formatter': 'verbose',
+            'stream': 'ext://sys.stderr'
+        },
+        'file': {
+            'level':'DEBUG',
+            'class':'logging.handlers.WatchedFileHandler',
+            'formatter': 'verbose',
+            'filename': os.path.join(DEPLOYED_ROOT, 'logs/django.log')
+        },
     },
     'loggers': {
         'django.request': {
@@ -169,5 +189,18 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': True,
         },
+        'django': {
+            'propagate': True,
+            'level':'WARNING',
+        },
+        'south': {
+            'propagate': False,
+            'level':'INFO',
+        },
+    },
+    'root': {
+        'handlers': ['file'],
+        'level': 'DEBUG',
+        'propagate': True,
     }
 }
