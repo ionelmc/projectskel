@@ -119,8 +119,10 @@ def setup_db():
 @task
 @require_role
 def prod_db_backup():
-    shell("pg_dump --clean -f snapshot.sql --no-owner --no-acl " +
-        settings.project_name)
+    shell("pg_dump --clean -f snapshot.sql --no-owner --no-acl %s_%s" % (
+        settings.project_name,
+        env.role,
+    ))
     download("snapshot.sql", "backup-%s.sql" % time.time())
 
 @task
