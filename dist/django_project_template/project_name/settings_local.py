@@ -2,7 +2,7 @@ from .settings import *
 
 # don't repeat connection OPTIONS here, the database server behavior needs to be the same in
 # development
-DEBUG = True
+DEBUG = TEMPLATE_DEBUG = True
 DATABASES['default']['NAME'] = '{{ project_name }}'
 
 INSTALLED_APPS += (
