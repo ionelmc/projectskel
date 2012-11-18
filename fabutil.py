@@ -507,7 +507,7 @@ def update_dependency(name=None):
     with ctx.lcd(settings.root_path), cwd(settings.root_path):
         if name:
             local(".ve/bin/pip install --download-cache=.pip-cache -I --source=.ve/src/ "
-                  "--timeout=1 `grep -iP '(?!#).*%s.*' REQUIREMENTS`" % name)
+                  "--timeout=1 `grep -iP '^(?!#).*%s.*' REQUIREMENTS`" % name)
         else:
             local(".ve/bin/pip install --download-cache=.pip-cache -U --source=.ve/src/ "
                   "--timeout=1 -r REQUIREMENTS")
