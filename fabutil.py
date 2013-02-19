@@ -742,7 +742,10 @@ def config_nginx(glob_pattern="*", **kwargs):
 
     def rollover_action(config_files, **kwargs):
         ops.sudo("service nginx configtest")
-        ops.sudo("service nginx reload")
+        if "not running" in silentrun("service nginx status", use_sudo=True):
+            ops.sudo("service nginx restart")
+        else:
+            ops.sudo("service nginx reload")
 
     def install_action(config_file, **kwargs):
         kwargs['CONFIGNAME'], kwargs['CONFIGTYPE'] = os.path.splitext(os.path.basename(config_file))
