@@ -379,6 +379,12 @@ def bootstrap(args=''):
                 ' --distribute' if settings.use_distribute else ''
             )
             local('.ve/bin/pip install -I .builds/project-deps.zip')
+            local(
+                ".ve/bin/pip install --download-cache=.pip-cache "
+                "-I --source=.ve/src/ %s --timeout=1" % ' '.join(
+                    "-r " + i for i in glob.glob("REQUIREMENTS.devel")
+                )
+            )
             # install project as a development package (inplace)
             local(".ve/bin/python setup.py develop")
             local("rm -rf .ve-backup")
