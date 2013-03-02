@@ -183,8 +183,9 @@ prj = Project()
 @task
 def build(args=''):
     """
-    Make a build of the current revision in .build directory.
+    Make project build. Run build:clean to remove dependency caches.
     """
+
     with ctx.lcd(settings.root_path), cwd(settings.root_path):
         local('mkdir -p .builds')
         local('mkdir -p .pip-cache')
@@ -277,6 +278,7 @@ def bundlestrap():
     """
     Bootstrap the uploaded project package on the remote server.
     """
+
     ## Install bare server requirements
     if silentrun('which easy_install').failed:
         ops.sudo('apt-get install -qq python-setuptools')
@@ -355,7 +357,7 @@ def clean():
 @task
 def bootstrap(args=''):
     """
-    Setup a working environment locally.
+    Setup a local working environment. Run bootstrap:clean to remove depependency caches.
     """
     deb_packages = [pkg.strip() for pkg in file("DEB-REQUIREMENTS")
                     if not pkg.startswith('#')]
@@ -366,25 +368,17 @@ def bootstrap(args=''):
         if confirm("Install debian packages (%s) ?" % ', '.join(deb_packages)):
             local("sudo apt-get install `cat DEB-REQUIREMENTS | grep -v ^#`")
 
+    build(args)
+
     with ctx.lcd(settings.root_path):
         local("mv .ve .ve-backup", quiet=True)
-        if args == 'nocache':
-            local("rm -rf .pip-cache", quiet=True)
         try:
-            # PIP install requirements
-            local("mkdir -p .pip-cache", quiet=True)
             local(
                 "virtualenv .ve --system-site-packages "
                 "--python=%s" % settings.py_version +
                 ' --distribute' if settings.use_distribute else ''
             )
-            local(
-                ".ve/bin/pip install --download-cache=.pip-cache "
-                "-I --source=.ve/src/ %s --timeout=1" % ' '.join(
-                    "-r " + i for i in glob.glob("REQUIREMENTS*")
-                )
-            )
-
+            local('.ve/bin/pip install -I .builds/project-deps.zip')
             # install project as a development package (inplace)
             local(".ve/bin/python setup.py develop")
             local("rm -rf .ve-backup")
@@ -504,6 +498,7 @@ def update_dependency(name=None):
     """
     Update specific or all dependencies in the local environment. Eg: fab update_dependency:celery; fab update_dependency
     """
+
     with ctx.lcd(settings.root_path), cwd(settings.root_path):
         if name:
             local(".ve/bin/pip install --download-cache=.pip-cache -I --source=.ve/src/ "
