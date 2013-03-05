@@ -380,8 +380,8 @@ def bootstrap(args=''):
             )
             local('.ve/bin/pip install -I .builds/project-deps.zip')
             local(
-                ".ve/bin/pip install --download-cache=.pip-cache "
-                "-I --source=.ve/src/ %s --timeout=1" % ' '.join(
+                ".ve/bin/pip install --download-cache=.pip-cache"
+                " --source=.ve/src/ %s --timeout=1" % ' '.join(
                     "-r " + i for i in glob.glob("REQUIREMENTS.devel")
                 )
             )
