@@ -156,3 +156,9 @@ servers then just add it in the env.roleconfig list for the correct role.
 To deploy the aplication to on servers from a specific role just run::
 
     fab -R rolename -u username -p password deploy
+
+
+.. image:: https://d2weczhvl823v0.cloudfront.net/ionelmc/projectskel/trend.png
+   :alt: Bitdeli badge
+   :target: https://bitdeli.com/free
+
