@@ -75,7 +75,6 @@ settings = AttrDict(
     build_ignore_file_patterns = ['dist'],
     project_name = 'namelessproject',
     root_path = os.path.abspath(os.path.dirname(__file__)),
-    venv_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '.ve'),
     tag = None
 )
 
