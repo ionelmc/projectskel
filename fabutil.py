@@ -11,22 +11,25 @@ __all__ = (
     'check_dependency_updates', 'shell', 'confirm', 'config_supervisord',
     'django_startproject', 'config_nginx', 'silentrun', 'set_tag'
 )
+
+from contextlib import contextmanager
+from fabric import colors
+from fabric import operations as ops, context_managers as ctx
+from fabric.api import env, task
+from fabric.contrib import files
+from fabric.contrib.console import confirm
+from fabric.decorators import runs_once
+from fabric.operations import open_shell
+from functools import wraps
+from tempfile import mkdtemp
+from shutil import rmtree
+import glob
 import hashlib
 import hmac
 import os
-import glob
 import re
 import sys
 import traceback
-from contextlib import contextmanager
-from functools import wraps
-from fabric import operations as ops, context_managers as ctx
-from fabric.operations import open_shell
-from fabric.api import env, task
-from fabric.contrib import files
-from fabric.decorators import runs_once
-from fabric.contrib.console import confirm
-from fabric import colors
 
 try:
     from os.path import relpath
@@ -47,12 +50,16 @@ except ImportError:
             return _curdir
         return join(*rel_list)
 
+SIG_FILE = '.builds/project-deps.sig'
+DEPS_FILE = '.builds/project-deps.tar.bz2'
+
 @contextmanager
-def cwd(path):
+def cwd(*parts):
+    path = os.path.join(*parts)
     old_path = os.getcwd()
     os.chdir(path)
     try:
-        yield
+        yield old_path
     finally:
         os.chdir(old_path)
 
@@ -182,10 +189,9 @@ prj = Project()
 @task
 def build(args=''):
     """
-    Make project build. Run build:clean to remove dependency caches.
+    Make a build of the current revision in .build directory.
     """
-
-    with ctx.lcd(settings.root_path), cwd(settings.root_path):
+    with cwd(settings.root_path):
         local('mkdir -p .builds')
         local('mkdir -p .pip-cache')
 
@@ -194,15 +200,26 @@ def build(args=''):
             local('rm -f .builds/project-deps.*')
             local('rm -f .pip-cache/*')
 
-        # Create project-deps.zip (pip bundle) if necessary
-        sig_file = '.builds/project-deps.sig'
-        if not os.path.exists(sig_file) or \
-           prj.requirements_hash != file(sig_file).read():
-            local(
-                'pip bundle .builds/project-deps.zip -r REQUIREMENTS '
-                '--timeout=1 --download-cache=.pip-cache'
-            )
-            with file(sig_file, 'w') as fh:
+        # Create project-deps.tar.bz2 (pip bundle) if necessary
+        if (
+            not os.path.exists(SIG_FILE) or
+            not os.path.exists(DEPS_FILE) or
+            prj.requirements_hash != file(SIG_FILE).read()
+        ):
+            tempdir = mkdtemp('-wheelhouse-%s' % settings.project_name)
+            try:
+                local(
+                    'pip wheel -r REQUIREMENTS --timeout=1 '
+                    '--download-cache=.pip-cache --use-mirrors '
+                    '--wheel-dir=%s' % tempdir
+                )
+                with cwd(tempdir):
+                    local('tar -cvf - * | bzip2 -cz9 > %s/%s' % (
+                        settings.root_path, DEPS_FILE
+                    ))
+            finally:
+                rmtree(tempdir)
+            with file(SIG_FILE, 'w') as fh:
                 fh.write(prj.requirements_hash)
 
 
@@ -218,12 +235,12 @@ def build(args=''):
             exclude_pipe = ''
 
         if prj.is_hg:
-            local('hg archive --type=tar --prefix=%s - %s | gzip > .builds/project.tar.gz' % (
+            local('hg archive --type=tar --prefix=%s - %s | bzip2 -cz9 > .builds/project.tar.bz2' % (
                 prj.build_name,
                 exclude_pipe
             ))
         elif prj.is_git:
-            local('git archive --format=tar --prefix=%s/ %s %s | gzip > .builds/project.tar.gz' % (
+            local('git archive --format=tar --prefix=%s/ %s %s | bzip2 -cz9 > .builds/project.tar.bz2' % (
                 prj.build_name,
                 prj.tag,
                 exclude_pipe
@@ -232,8 +249,8 @@ def build(args=''):
             raise RuntimeError, "Unknown revision control system. Cannot build."
 
         with ctx.lcd('.builds'):
-            local('tar czf %s.tar.gz project.tar.gz project-deps.zip' % prj.build_name)
-            local('rm -f project.tar.gz')
+            local('tar -cf %s.tar project.tar.bz2 project-deps.tar.bz2' % prj.build_name)
+            local('rm -f project.tar.bz2')
 
         # Remove pip's temp dirs
         local('rm -rf build-bundle* src-bundle*')
@@ -250,7 +267,7 @@ def build(args=''):
             with ctx.lcd('.builds'):
                 for i in ops.local("du -sh *%s*" % prj.tag, capture=True).splitlines():
                     print colors.yellow("| ") + colors.cyan(i.expandtabs()).ljust(76) + colors.yellow("|")
-                for i in ops.local("du -sh *project-deps*", capture=True).splitlines():
+                for i in ops.local("du -sh *project*", capture=True).splitlines():
                     print colors.yellow("| ") + colors.cyan(i.expandtabs()).ljust(76) + colors.yellow("|")
         print colors.yellow("|____________________________________________________________________|")
 
@@ -267,7 +284,7 @@ def upload(what=None):
         with ctx.lcd(settings.root_path):
             ops.run('mkdir -p builds')
             # Upload the current package
-            fname = "builds/%s.tar.gz" % prj.build_name
+            fname = "builds/%s.tar" % prj.build_name
             ops.put("." + fname, fname)
 
 
@@ -277,7 +294,6 @@ def bundlestrap():
     """
     Bootstrap the uploaded project package on the remote server.
     """
-
     ## Install bare server requirements
     if silentrun('which easy_install').failed:
         ops.sudo('apt-get install -qq python-setuptools')
@@ -285,6 +301,8 @@ def bundlestrap():
         ops.sudo('easy_install pip')
     if silentrun('which virtualenv').failed:
         ops.sudo('pip install virtualenv')
+    if silentrun('pip wheel').failed:
+        ops.sudo('easy_install -U pip virtualenv wheel')
     if silentrun('which fab').failed:
         ops.sudo('apt-get install -qq python-dev')
         ops.sudo('pip install Fabric')
@@ -302,15 +320,26 @@ def bundlestrap():
             ops.sudo("sudo apt-get install -qq " + pkg)
 
     with ctx.cd(deployment_dir):
-        ops.run('rm -rf %s' % prj.build_name)
-        ops.run('tar xmzf ~/builds/%s.tar.gz' % prj.build_name)
-        ops.run('tar xmzf project.tar.gz')
+rj.build_name)
+        ops.run('tar -xvf ~/builds/%s.tar' % prj.build_name)
+        ops.run('tar -xjf project.tar.bz2')
         ops.run('virtualenv %s/.ve --python=%s --system-site-packages' % (
             prj.build_name, settings.py_version
-        ) + ' --distribute' if settings.use_distribute else '')
-        ops.run('%s/.ve/bin/pip install -I project-deps.zip' % prj.build_name)
+        ) + (' --distribute' if settings.use_distribute else ''))
+        tempdir = ops.run("mktemp -d /tmp/wheelhouse-%s-XXXXX" % settings.project_name)
+        try:
+            with ctx.cd(tempdir):
+                ops.run('tar -xjvf %s/project-deps.tar.bz2' % (
+                    deployment_dir,
+                ))
+            ops.run(
+                '%s/.ve/bin/pip install --ignore-installed --upgrade --no-index '
+                '--use-wheel --no-deps %s/*' % (prj.build_name, tempdir)
+            )
+        finally:
+            ops.run("rm -rf %r" % tempdir)
         ops.run('rm -rf %s/.ve/build' % prj.build_name)
-        ops.run('rm -f project-deps.zip project.tar.gz')
+        ops.run('rm -f project-deps.tar.bz2 project.tar.bz2')
 
     with ctx.cd("%s/%s" % (deployment_dir, prj.build_name)):
         ops.run('.ve/bin/python setup.py develop')
@@ -357,27 +386,47 @@ def clean():
 def bootstrap(args=''):
     """
     Setup a local working environment. Run bootstrap:clean to remove depependency caches.
-    """
-    deb_packages = [pkg.strip() for pkg in file("DEB-REQUIREMENTS")
-                    if not pkg.startswith('#')]
-    if any(
-        local("dpkg -s %s" % pkg, quiet=True, capture=True).failed
-        for pkg in deb_packages
-    ):
-        if confirm("Install debian packages (%s) ?" % ', '.join(deb_packages)):
-            local("sudo apt-get install `cat DEB-REQUIREMENTS | grep -v ^#`")
 
-    build(args)
+    with cwd(settings.root_path):
+        deb_packages = [pkg.strip() for pkg in file("DEB-REQUIREMENTS")
+                        if not pkg.startswith('#')]
+        if any(
+            local("dpkg -s %s" % pkg, quiet=True, capture=True).failed
+            for pkg in deb_packages
+        ):
+            if confirm("Install debian packages (%s) ?" % ', '.join(deb_packages)):
+                local("sudo apt-get install `cat DEB-REQUIREMENTS | grep -v ^#`")
 
-    with ctx.lcd(settings.root_path):
-        local("mv .ve .ve-backup", quiet=True)
+        build(args)
+        i = 0
+        if os.path.exists('.ve'):
+            for i in range(1, 11):
+                if local("mv .ve .ve-backup-%s" % i, quiet=True).succeeded:
+                    break
+            else:
+                raise RuntimeError("Could not make backup.")
         try:
             local(
                 "virtualenv .ve --system-site-packages "
                 "--python=%s" % settings.py_version +
-                ' --distribute' if settings.use_distribute else ''
+                (' --distribute' if settings.use_distribute else '') +
+                (' --always-copy' if not supports_symlink(os.path.join(
+                    settings.root_path, 'symlink-test'
+                )) else '')
             )
-            local('.ve/bin/pip install -I .builds/project-deps.zip')
+            tempdir = mkdtemp('-wheelhouse-%s' % settings.project_name)
+            try:
+                with cwd(tempdir):
+                    local('tar -xjvf %s/%s' % (
+                        settings.root_path, DEPS_FILE
+                    ))
+                local(
+                    '.ve/bin/pip install --ignore-installed --upgrade --no-index '
+                    '--use-wheel --no-deps %s/*' % tempdir
+                )
+            finally:
+                rmtree(tempdir)
+
             local(
                 ".ve/bin/pip install --download-cache=.pip-cache"
                 " --source=.ve/src/ %s --timeout=1" % ' '.join(
@@ -388,8 +437,25 @@ def bootstrap(args=''):
             local(".ve/bin/python setup.py develop")
             local("rm -rf .ve-backup")
         except:
-            local("mv .ve-backup .ve", quiet=True)
+            if i:
+                local("mv .ve-backup-%s .ve" % i, quiet=True)
             raise
+
+def supports_symlink(dest='/tmp/symlink-test'):
+    try:
+        os.unlink(dest)
+    except OSError:
+        pass
+    try:
+        os.symlink('/', dest)
+        return True
+    except OSError:
+        return False
+    finally:
+        try:
+            os.unlink(dest)
+        except OSError:
+            pass
 
 @task
 def python(args):
@@ -481,18 +547,18 @@ def prune_builds(keep=3):
             versions = [i for i in silentrun('ls -1t').split() if i.startswith(settings.project_name)]
             for version in versions[keep:]:
                 ops.run('rm -rf %s' % version)
-                ops.run('rm -f ~/builds/%s.tar.gz' % version)
+      ops.run('rm -f ~/builds/%s.tar' % version)
 
 @task
 def check_dependency_updates():
     """
     Check for dependency updates in the local development environment.
     """
-    with ctx.lcd(settings.root_path), cwd(settings.root_path):
+    with cwd(settings.root_path):
         local('.ve/bin/pip install yolk')
         reqs = [re.split('[<>=]', line)[0] for line in [
             line.strip() for line in open('REQUIREMENTS')
-        ] if not line.startswith('#') #and not '/' in line
+        ] if not line.startswith('#') and '/' not in line
         ]
 
         for req in reqs:
@@ -504,7 +570,7 @@ def update_dependency(name=None):
     Update specific or all dependencies in the local environment. Eg: fab update_dependency:celery; fab update_dependency
     """
 
-    with ctx.lcd(settings.root_path), cwd(settings.root_path):
+    with cwd(settings.root_path):
         if name:
             local(".ve/bin/pip install --download-cache=.pip-cache -I -U --source=.ve/src/ "
                   "--timeout=1 `grep -iP '^(?!#).*%s.*' REQUIREMENTS`" % name)
@@ -693,7 +759,7 @@ def setup_postgresql():
         with ctx.settings(warn_only=True):
             ops.sudo("sudo -u postgres createuser -R -S -d " + env.user)
     with ctx.settings(warn_only=True):
-        ops.run("createdb %s_%s" % (settings.project_name, env.role))
+        ops.run("createdb %s --encoding=UTF8 --locale=en_US.UTF-8" % env.roleconfig.get(env.role, {}).get('DATABASE_NAME', "%s_%s" % (settings.project_name, env.role)))
     if silentrun("dpkg -s python-psycopg2 > /dev/null").failed:
         ops.sudo("apt-get install -qq python-psycopg2")
 
