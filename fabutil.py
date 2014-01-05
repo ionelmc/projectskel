@@ -77,7 +77,6 @@ settings = AttrDict(
     deployment_dir = 'deployed',
     py_version = 'python%s.%s' % (sys.version_info[0], sys.version_info[1]),
     environment = 'local',
-    use_distribute = True,
     use_jinja = True,
     build_ignore_file_patterns = ['dist'],
     project_name = 'namelessproject',
@@ -211,7 +210,7 @@ def build(args=''):
                 local(
                     'pip wheel -r REQUIREMENTS --timeout=1 '
                     '--download-cache=.pip-cache --use-mirrors '
-                    '--wheel-dir=%s' % tempdir
+                    '--no-use-wheel --wheel-dir=%s' % tempdir
                 )
                 with cwd(tempdir):
                     local('tar -cvf - * | bzip2 -cz9 > %s/%s' % (
@@ -249,7 +248,7 @@ def build(args=''):
             raise RuntimeError, "Unknown revision control system. Cannot build."
 
         with ctx.lcd('.builds'):
-            local('tar -cf %s.tar project.tar.bz2 project-deps.tar.bz2' % prj.build_name)
+            local('tar -cf %s.tar project.tar.bz2 project-deps.tar.bz2 ../dist/virtualenv.tar.gz' % prj.build_name)
             local('rm -f project.tar.bz2')
 
         # Remove pip's temp dirs
@@ -294,18 +293,6 @@ def bundlestrap():
     """
     Bootstrap the uploaded project package on the remote server.
     """
-    ## Install bare server requirements
-    if silentrun('which easy_install').failed:
-        ops.sudo('apt-get install -qq python-setuptools')
-    if silentrun('which pip').failed:
-        ops.sudo('easy_install pip')
-    if silentrun('which virtualenv').failed:
-        ops.sudo('pip install virtualenv')
-    if silentrun('pip wheel').failed:
-        ops.sudo('easy_install -U pip virtualenv wheel')
-    if silentrun('which fab').failed:
-        ops.sudo('apt-get install -qq python-dev')
-        ops.sudo('pip install Fabric')
     deployment_dir = '~/%s/%s' % (settings.deployment_dir, env.role)
     ops.run('mkdir -p ~/run ~/media-%s ~/logs %s' % (env.role, deployment_dir))
     # temporarily disable .pydistutils.cfg, see https://github.com/pypa/virtualenv/issues/88
@@ -320,12 +307,14 @@ def bundlestrap():
             ops.sudo("sudo apt-get install -qq " + pkg)
 
     with ctx.cd(deployment_dir):
-rj.build_name)
+        ops.run('rm -rf %s' % prj.build_name)
         ops.run('tar -xvf ~/builds/%s.tar' % prj.build_name)
         ops.run('tar -xjf project.tar.bz2')
-        ops.run('virtualenv %s/.ve --python=%s --system-site-packages' % (
-            prj.build_name, settings.py_version
-        ) + (' --distribute' if settings.use_distribute else ''))
+        with ctx.cd('dist'):
+            ops.run('tar -xzf virtualenv.tar.gz --strip 1')
+            ops.run('python virtualenv.py ../%s/.ve --python=%s --system-site-packages' % (
+                prj.build_name, settings.py_version
+            ))
         tempdir = ops.run("mktemp -d /tmp/wheelhouse-%s-XXXXX" % settings.project_name)
         try:
             with ctx.cd(tempdir):
@@ -334,11 +323,11 @@ rj.build_name)
                 ))
             ops.run(
                 '%s/.ve/bin/pip install --ignore-installed --upgrade --no-index '
-                '--use-wheel --no-deps %s/*' % (prj.build_name, tempdir)
+                '--no-deps %s/*' % (prj.build_name, tempdir)
             )
         finally:
             ops.run("rm -rf %r" % tempdir)
-        ops.run('rm -rf %s/.ve/build' % prj.build_name)
+        ops.run('rm -rf %s/.ve/build dist' % prj.build_name)
         ops.run('rm -f project-deps.tar.bz2 project.tar.bz2')
 
     with ctx.cd("%s/%s" % (deployment_dir, prj.build_name)):
@@ -356,9 +345,9 @@ def rollover_project_link():
 @task
 @require_role
 def fab(args='', role=None, version=None):
-    "Run a remove fab command in the currently installed project's root."
+    "Run a remote fab command in the currently installed project's root."
     with ctx.cd("~/%s/%s/%s" % (settings.deployment_dir, env.role, version or 'current')):
-        ops.run("fab environment:%s %s" % (role or env.role, args))
+        ops.run(".ve/bin/fab environment:%s %s" % (role or env.role, args))
 
 onefab = runs_once(fab)
 
@@ -386,7 +375,7 @@ def clean():
 def bootstrap(args=''):
     """
     Setup a local working environment. Run bootstrap:clean to remove depependency caches.
-
+    """
     with cwd(settings.root_path):
         deb_packages = [pkg.strip() for pkg in file("DEB-REQUIREMENTS")
                         if not pkg.startswith('#')]
@@ -409,7 +398,6 @@ def bootstrap(args=''):
             local(
                 "virtualenv .ve --system-site-packages "
                 "--python=%s" % settings.py_version +
-                (' --distribute' if settings.use_distribute else '') +
                 (' --always-copy' if not supports_symlink(os.path.join(
                     settings.root_path, 'symlink-test'
                 )) else '')
@@ -422,7 +410,7 @@ def bootstrap(args=''):
                     ))
                 local(
                     '.ve/bin/pip install --ignore-installed --upgrade --no-index '
-                    '--use-wheel --no-deps %s/*' % tempdir
+                    '--no-deps %s/*' % tempdir
                 )
             finally:
                 rmtree(tempdir)
@@ -547,7 +535,7 @@ def prune_builds(keep=3):
             versions = [i for i in silentrun('ls -1t').split() if i.startswith(settings.project_name)]
             for version in versions[keep:]:
                 ops.run('rm -rf %s' % version)
-      ops.run('rm -f ~/builds/%s.tar' % version)
+                ops.run('rm -f ~/builds/%s.tar' % version)
 
 @task
 def check_dependency_updates():
