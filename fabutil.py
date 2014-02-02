@@ -248,7 +248,7 @@ def build(args=''):
             raise RuntimeError, "Unknown revision control system. Cannot build."
 
         with ctx.lcd('.builds'):
-            local('tar -cf %s.tar project.tar.bz2 project-deps.tar.bz2 ../dist/virtualenv.tar.gz' % prj.build_name)
+            local('tar -cf %s.tar project.tar.bz2 project-deps.tar.bz2 ../dist/virtualenv*.tar.gz' % prj.build_name)
             local('rm -f project.tar.bz2')
 
         # Remove pip's temp dirs
@@ -311,7 +311,7 @@ def bundlestrap():
         ops.run('tar -xvf ~/builds/%s.tar' % prj.build_name)
         ops.run('tar -xjf project.tar.bz2')
         with ctx.cd('dist'):
-            ops.run('tar -xzf virtualenv.tar.gz --strip 1')
+            ops.run('tar -xzf virtualenv*.tar.gz --strip 1')
             ops.run('python virtualenv.py ../%s/.ve --python=%s --system-site-packages' % (
                 prj.build_name, settings.py_version
             ))
@@ -417,7 +417,7 @@ def bootstrap(args=''):
 
             local(
                 ".ve/bin/pip install --download-cache=.pip-cache"
-                " --source=.ve/src/ %s --timeout=1" % ' '.join(
+                " --source=.ve-src/ %s --timeout=1" % ' '.join(
                     "-r " + i for i in glob.glob("REQUIREMENTS.devel")
                 )
             )
@@ -560,10 +560,10 @@ def update_dependency(name=None):
 
     with cwd(settings.root_path):
         if name:
-            local(".ve/bin/pip install --download-cache=.pip-cache -I -U --source=.ve/src/ "
+            local(".ve/bin/pip install --download-cache=.pip-cache -I -U --source=.ve-src/ "
                   "--timeout=1 `grep -iP '^(?!#).*%s.*' REQUIREMENTS`" % name)
         else:
-            local(".ve/bin/pip install --download-cache=.pip-cache -U --source=.ve/src/ "
+            local(".ve/bin/pip install --download-cache=.pip-cache -U --source=.ve-src/ "
                   "--timeout=1 -r REQUIREMENTS")
 
 @require_role
