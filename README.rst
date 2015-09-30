@@ -153,7 +153,7 @@ servers then just add it in the env.roleconfig list for the correct role.
 
     Role name must not contain spaces !
 
-To deploy the aplication to on servers from a specific role just run::
+To deploy the application to on servers from a specific role just run::
 
     fab -R rolename -u username -p password deploy
 
